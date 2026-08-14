@@ -85,6 +85,19 @@ class FlashInferCuteDSLExperts(mk.FusedMoEExpertsModular):
         return True
 
     @staticmethod
+    def _supports_intermediate_size(
+        intermediate_size_per_partition: int, is_act_and_mul: bool
+    ) -> bool:
+        # The CuteDSL contiguous kernel requires the GEMM1 output dim to be a
+        # multiple of 128 and raises otherwise (flashinfer
+        # blockscaled_contiguous_gather_grouped_gemm_act_fusion.py: "GEMM1
+        # output dim n={n} must be a multiple of 128"). Gated MLPs produce
+        # n = 2 * intermediate_size, non-gated ones n = intermediate_size, so
+        # non-gated models are the ones that typically trip this.
+        n = intermediate_size_per_partition * (2 if is_act_and_mul else 1)
+        return n % 128 == 0
+
+    @staticmethod
     def _supports_quant_scheme(
         weight_key: QuantKey | None,
         activation_key: QuantKey | None,

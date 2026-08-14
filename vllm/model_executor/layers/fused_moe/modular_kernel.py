@@ -582,6 +582,13 @@ class FusedMoEExperts(ABC):
             return False, _make_reason(
                 f"{moe_config.hidden_dim} hidden dim is not supported"
             )
+        elif not cls._supports_intermediate_size(
+            moe_config.intermediate_size_per_partition, moe_config.is_act_and_mul
+        ):
+            return False, _make_reason(
+                f"{moe_config.intermediate_size_per_partition} intermediate size "
+                f"(is_act_and_mul={moe_config.is_act_and_mul}) is not supported"
+            )
         elif activation_format != cls.activation_format():
             return False, _make_reason(f"{activation_format.value} activation format")
         elif envs.VLLM_BATCH_INVARIANT and not cls._supports_batch_invariance():
@@ -667,6 +674,18 @@ class FusedMoEExperts(ABC):
         """
         Whether a kernel supports a particular shape. Can be overridden if a kernel
         has specific shape requirements.
+        """
+        return True
+
+    @staticmethod
+    def _supports_intermediate_size(
+        intermediate_size_per_partition: int, is_act_and_mul: bool
+    ) -> bool:
+        """
+        Whether a kernel supports a particular intermediate size. Can be overridden
+        if a kernel constrains the GEMM1 output dim, which is
+        2 * intermediate_size_per_partition for gated (act_and_mul) MLPs and
+        intermediate_size_per_partition otherwise.
         """
         return True
 
